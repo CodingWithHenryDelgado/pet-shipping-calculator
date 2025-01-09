@@ -7,10 +7,11 @@
     <title>Dog Transport Calculator</title>
     <link rel="stylesheet" href="styles.css">
     <script src="config.js"></script>
-    <script>
+    <script async>
         const script = document.createElement('script');
         script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
         script.async = true;
+        script.defer = true;
         document.head.appendChild(script);
     </script>
 </head>
@@ -20,64 +21,37 @@
         <h1>Dog Transport Calculator</h1>
 
         <form id="transport-form">
-            <label for="pickup-window">Pick-Up Window:</label>
-            <input type="date" id="pickup-window" min="" max="" required>
-
-            <label for="dropoff-window">Drop-Off Window:</label>
-            <input type="date" id="dropoff-window" min="" max="" required>
-
-            <label for="pickup-address">Pick-Up Address:</label>
-            <input type="text" id="pickup-address" placeholder="Enter pick-up address" required>
-
-            <label for="dropoff-address">Drop-Off Address:</label>
-            <input type="text" id="dropoff-address" placeholder="Enter drop-off address" required>
-
             <label for="num-animals">Number of Animals:</label>
             <select id="num-animals" required>
                 <option value="1">1</option>
                 <option value="2">2</option>
                 <option value="3">3</option>
                 <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-                <option value="8">8</option>
-                <option value="9">9</option>
-                <option value="10">10</option>
-                <option value="more-than-10">More than 10</option>
-            </select>
-
-            <div id="crate-selection" style="display: none;">
-                <label for="crate-count">Are the pets in one crate or two crates?</label>
-                <select id="crate-count" required>
-                    <option value="1">One Crate</option>
-                    <option value="2" selected>Two Crates</option>
-                </select>
-            </div>
-
-            <label for="pet-type">Type of Pet:</label>
-            <select id="pet-type" required>
-                <option value="dog">Dog</option>
-                <option value="cat">Cat</option>
-                <option value="multiple">Multiple</option>
-                <option value="other">Other</option>
-            </select>
-
-            <label for="breeds">Breeds (Required):</label>
-            <input type="text" id="breeds" placeholder="Enter breeds" required>
-
-            <label for="dog-size">Pet Size:</label>
-            <select id="dog-size" required>
-                <option value="small">Small: 1-29 lbs</option>
-                <option value="medium">Medium: 30-44 lbs</option>
-                <option value="large">Large: 45-74 lbs</option>
-                <option value="x-large">X-Large: 75-99 lbs</option>
+                <option value="5">5+</option>
             </select>
 
             <label for="services">Service:</label>
             <select id="services" required>
-                <option value="shared-ride">Shared Ride</option>
+                <option value="shared-ride">Shared Ride (4 day delivery)</option>
+                <option value="semi-private-ride">Semi Private Ride (3 day delivery)</option>
+                <option value="private-ride">Private Ride (2 day delivery)</option>
+                <option value="private-ride-two-drivers">Private Ride Two Drivers (1 day delivery)</option>
             </select>
+
+            <label for="pickup-window">Pick-Up Window:</label>
+            <input type="date" id="pickup-window" min="" max="" required>
+
+            <label for="dropoff-window">Drop-Off Window:</label>
+            <input type="date" id="dropoff-window" min="" max="" required>
+
+            <h2>500 Mile Minimum</h2>
+            <label for="pickup-address">Pick-Up Address:</label>
+            <input type="text" id="pickup-address" placeholder="Enter pick-up address" required>
+
+            <label for="dropoff-address">Drop-Off Address:</label>
+            <input type="text" id="dropoff-address" placeholder="Enter drop-off address" required>
+
+            <div id="dynamic-pets-container"></div>
 
             <button type="button" id="calculate-btn">Calculate Price</button>
         </form>
