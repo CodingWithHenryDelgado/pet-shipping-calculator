@@ -48,3 +48,8 @@ button:hover {
 #results {
     margin-top: 20px;
 }
+
+/* Highlighted rush job dates */
+.rush-job-highlight {
+    background-color: yellow !important;
+}

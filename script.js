@@ -26,15 +26,27 @@ const depositCosts = {
 // Initialize today's date
 const today = new Date();
 
-document.getElementById('pickup-window').setAttribute('min', today.toISOString().split('T')[0]);
+// Event listeners for pickup window and service selection
+document.getElementById('pickup-window').addEventListener('change', updateDropoffWindow);
+document.getElementById('services').addEventListener('change', updateDropoffWindow);
 
-// Event listener for the pickup window
-document.getElementById('pickup-window').addEventListener('change', () => {
-    const pickupDate = new Date(document.getElementById('pickup-window').value);
-    const service = document.getElementById('services').value; // Get selected service
+function updateDropoffWindow() {
+    const pickupInput = document.getElementById('pickup-window').value;
+    const service = document.getElementById('services').value;
+    const dropoffDisplay = document.getElementById('dropoff-window-display'); // The <p> where we show the range
+
+    if (!pickupInput || !service) {
+        dropoffDisplay.textContent = "Select a pick-up date and service to see the drop-off window.";
+        return;
+    }
+
+    // Ensure pickupDate is in local time (prevents timezone issues)
+    const pickupDate = new Date(pickupInput + "T00:00:00"); 
+    pickupDate.setHours(0, 0, 0, 0); // Reset time to avoid timezone shifts
 
     let maxDays;
-    // Set maximum days based on the service
+
+    // Set maximum days based on selected service
     switch (service) {
         case 'shared-ride':
             maxDays = 4;
@@ -46,20 +58,29 @@ document.getElementById('pickup-window').addEventListener('change', () => {
             maxDays = 2;
             break;
         case 'private-ride-two-drivers':
-            maxDays = 1;
+            maxDays = 0; // Same-day delivery (no extra days)
             break;
         default:
             maxDays = 4; // Default to shared-ride
     }
 
-    // Calculate the maximum drop-off date
-    const maxDropOffDate = new Date(pickupDate);
-    maxDropOffDate.setDate(pickupDate.getDate() + maxDays);
+    // Create a NEW date object to avoid modifying pickupDate
+    const dropoffDate = new Date(pickupDate.getTime());
+    dropoffDate.setDate(dropoffDate.getDate() + maxDays);
 
-    // Set the drop-off date limits dynamically
-    document.getElementById('dropoff-window').setAttribute('min', pickupDate.toISOString().split('T')[0]);
-    document.getElementById('dropoff-window').setAttribute('max', maxDropOffDate.toISOString().split('T')[0]);
-});
+    // Display formatted range
+    if (maxDays === 0) {
+        dropoffDisplay.innerHTML = `<strong>Drop-Off Window:</strong> ${formatDate(pickupDate)} (Same Day)`;
+    } else {
+        dropoffDisplay.innerHTML = `<strong>Drop-Off Window:</strong> ${formatDate(pickupDate)} - ${formatDate(dropoffDate)}`;
+    }
+}
+
+// Helper function to format date as "Month Day" (e.g., "March 16")
+function formatDate(date) {
+    const options = { month: 'long', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+}
 
 document.getElementById('num-animals').addEventListener('change', () => {
     const numAnimals = parseInt(document.getElementById('num-animals').value, 10);
@@ -112,8 +133,8 @@ function renderPetFields(numAnimals) {
                 <option value="xxx-large">XXX-Large: 150-199 lbs</option>
             </select>
             
-            <label for="pet-${i}-breed">Breed:</label>
-            <input type="text" id="pet-${i}-breed" placeholder="Enter breed" required>
+            <label for="pet-${i}-height">Estimated Height:</label>
+            <input type="text" id="pet-${i}-height" placeholder="Standing up from floor to head (inches)." required>
             
             <label for="pet-${i}-type">Type of Pet:</label>
             <select id="pet-${i}-type" required>
@@ -124,11 +145,11 @@ function renderPetFields(numAnimals) {
             
             <label for="pet-${i}-crate">Crate Size Needed:</label>
             <select id="pet-${i}-crate" required>
-                <option value="small">Small - Up to 19"</option>
-                <option value="medium">Medium - Up to 24"</option>
-                <option value="large">Large - Up to 28"</option>
-                <option value="xl">XL - Up to 35"</option>
-                <option value="xxl">XXL - Up to 40"</option>
+                <option value="small">Small - Up to 19 inches</option>
+                <option value="medium">Medium - Up to 24 inches</option>
+                <option value="large">Large - Up to 28 inches</option>
+                <option value="xl">XL - Up to 35 inches</option>
+                <option value="xxl">XXL - Up to 40 inches</option>
             </select>
         `;
 
@@ -171,6 +192,9 @@ function addSharedCrateLogic() {
     // Attach event listeners to dropdowns
     pet1WeightSelect.addEventListener('change', checkSharedCrate);
     pet2WeightSelect.addEventListener('change', checkSharedCrate);
+
+    // ✅ Call the function immediately to check the initial state
+    checkSharedCrate();
 }
 
 // Event listener for the number of animals
@@ -187,16 +211,9 @@ window.onload = () => {
 // Validation before calculating the price
 document.getElementById('calculate-btn').addEventListener('click', () => {
     const pickupDate = new Date(document.getElementById('pickup-window').value);
-    const dropoffDate = new Date(document.getElementById('dropoff-window').value);
 
-    if (!pickupDate || !dropoffDate) {
-        alert("Please select both pickup and drop-off dates!");
-        return;
-    }
-
-    const dateDifference = (dropoffDate - pickupDate) / (1000 * 60 * 60 * 24); // Convert milliseconds to days
-    if (dateDifference < 0 || dateDifference > 4) {
-        alert("The drop-off date must be within 4 days of the pickup date.");
+    if (!pickupDate) {
+        alert("Please select pick up window");
         return;
     }
 
@@ -228,19 +245,20 @@ document.getElementById('calculate-btn').addEventListener('click', () => {
         return;
     }
 
-    calculateDistance(pickupAddress, dropoffAddress, (distanceMiles) => {
+    calculateDistance(pickupAddress, dropoffAddress, (distanceMiles, isFloridaTrip) => {
         if (distanceMiles === null) {
             alert("Unable to calculate distance. Please check your addresses.");
             return;
         }
 
+        let basePrice;
         if (distanceMiles < 500) {
-            distanceMiles = 500;
+            basePrice = isFloridaTrip ? 400 : 500; // Florida trips are $400, others are $500
+        } else {
+            const roundedDistance = Math.round(distanceMiles);
+            const pricePerMile = getPricePerMile(roundedDistance, dogSizes, service);
+            basePrice = roundedDistance * pricePerMile;
         }
-
-        const roundedDistance = Math.round(distanceMiles);
-        const pricePerMile = getPricePerMile(roundedDistance, dogSizes, service);
-        const basePrice = roundedDistance * pricePerMile;
 
         const { totalPrice, breakdown } = calculateTotalPriceWithBreakdown(basePrice, numAnimals, sharedCrateOption ? sharedCrateOption.value : null);
 
@@ -248,10 +266,13 @@ document.getElementById('calculate-btn').addEventListener('click', () => {
         const deposit = depositCosts[service] || 0; // Get deposit cost for the selected service
         const finalTotalPrice = totalPrice + deposit;
 
+        const rushMessage = window.isRushJob ? "<p style='color: red; font-weight: bold;'>THIS IS A RUSHED JOB</p>" : "";
+
         document.getElementById('price-output').innerHTML = `
-            <p>Distance: ${roundedDistance} miles</p>
+            <p>Distance: ${distanceMiles < 500 ? "Minimum Applied" : Math.round(distanceMiles) + " miles"}</p>
             <p>Service: ${service}</p>
             <p>Number of Animals: ${numAnimals}</p>
+            <p>${rushMessage}</p>
             <p>Detailed Breakdown:</p>
             <ul>
                 ${breakdown.map((item) => `<li>${item}</li>`).join('')}
@@ -276,7 +297,11 @@ function calculateDistance(pickupAddress, dropoffAddress, callback) {
             if (status === google.maps.DistanceMatrixStatus.OK) {
                 const distanceMiles =
                     response.rows[0].elements[0].distance.value / 1609.34; // Convert meters to miles
-                callback(distanceMiles);
+
+                // Check if the trip is within Florida
+                checkIfTripIsInFlorida(pickupAddress, dropoffAddress, (isFloridaTrip) => {
+                    callback(distanceMiles, isFloridaTrip);
+                });
             } else {
                 console.error("Error fetching Distance Matrix data:", status);
                 callback(null);
@@ -285,70 +310,65 @@ function calculateDistance(pickupAddress, dropoffAddress, callback) {
     );
 }
 
-// Get pricing per mile based on distance range and dog size
-// function getPricePerMile(distance, dogSize, service) {
-//     let rate;
+// Function to check if both addresses are in Florida
+function checkIfTripIsInFlorida(pickupAddress, dropoffAddress, callback) {
+    const geocoder = new google.maps.Geocoder();
 
-//     // Shared Ride rates based on weight (dog size)
-//     // Array [< 1000, >= 1000 && < 1500, >= 1500 && < 2000, >= 2000 && < 2500, >= 2500]
-//     const sharedRates = {
-//         small: [0.7, 0.65, 0.6, 0.56, 0.54],
-//         medium: [0.72, 0.67, 0.62, 0.57, 0.55],
-//         large: [0.74, 0.69, 0.64, 0.59, 0.56],
-//         'x-large': [0.76, 0.7, 0.66, 0.63, 0.61],
-//         'xx-large': [0.76, 0.7, 0.66, 0.63, 0.61],
-//         'xxx-large': [0.76, 0.7, 0.66, 0.63, 0.61],
-//     };
+    geocoder.geocode({ address: pickupAddress }, (pickupResults, status) => {
+        if (status !== "OK" || !pickupResults[0]) {
+            callback(false);
+            return;
+        }
 
-//     // Private ride rates
-//     const privateRates = [2.2, 1.5, 1.3, 1.27, 1.25, 1.13];
+        geocoder.geocode({ address: dropoffAddress }, (dropoffResults, status) => {
+            if (status !== "OK" || !dropoffResults[0]) {
+                callback(false);
+                return;
+            }
 
-//     // Private ride (two drivers) rates
-//     const privateTwoDriverRates = [2.5, 1.7, 1.55, 1.4, 1.32, 1.27];
+            const pickupState = getStateFromAddressComponents(pickupResults[0].address_components);
+            const dropoffState = getStateFromAddressComponents(dropoffResults[0].address_components);
 
-//     // Semi-private ride rates (25% of private ride rates)
-//     const semiPrivateRates = privateRates.map(rate => rate * 0.25);
+            const isFloridaTrip = pickupState === "FL" && dropoffState === "FL";
+            callback(isFloridaTrip);
+        });
+    });
+}
 
-//     // Define distance ranges
-//     const distanceRanges = [1000, 1500, 2000, 2500, 2800];
+// Extract the state abbreviation (e.g., "FL") from Google Maps address components
+function getStateFromAddressComponents(components) {
+    for (let component of components) {
+        if (component.types.includes("administrative_area_level_1")) {
+            return component.short_name; // Example: "FL" for Florida
+        }
+    }
+    return null;
+}
 
-//     // Select appropriate rate set based on the service
-//     let selectedRates;
-//     switch (service) {
-//         case 'shared-ride':
-//             selectedRates = sharedRates[dogSize] || [];
-//             break;
-//         case 'private-ride':
-//             selectedRates = privateRates;
-//             break;
-//         case 'private-ride-two-drivers':
-//             selectedRates = privateTwoDriverRates;
-//             break;
-//         case 'semi-private-ride':
-//             selectedRates = semiPrivateRates;
-//             break;
-//         default:
-//             return 0; // Return 0 for unsupported services
-//     }
+function highlightRushDates() {
+    const dateInput = document.getElementById('pickup-window');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-//     // Determine the rate based on distance
-//     for (let i = 0; i < distanceRanges.length; i++) {
-//         if (distance < distanceRanges[i]) {
-//             rate = selectedRates[i];
-//             break;
-//         }
-//     }
+    const fourDaysLater = new Date(today);
+    fourDaysLater.setDate(today.getDate() + 4);
 
+    dateInput.addEventListener('input', function () {
+        const selectedDate = new Date(this.value + "T00:00:00"); // Force local time format
+        
+        // Check if the selected date is within the rush job range
+        window.isRushJob = selectedDate.getTime() >= today.getTime() && selectedDate.getTime() <= fourDaysLater.getTime();
 
-//     if (dogSize === 'xxl') {
-//         rate += 100 / distance;
-//     } else if (dogSize === 'xxxl') {
-//         rate += 150 / distance;
-//     }
+        if (window.isRushJob) {
+            this.classList.add('rush-job-highlight'); // Apply yellow background
+        } else {
+            this.classList.remove('rush-job-highlight'); // Remove yellow background
+        }
+    });
+}
 
-
-//     return rate || 0; // Return 0 if no rate found
-// }
+// Initialize rush highlighting
+highlightRushDates();
 
 function getPricePerMile(distance, dogSizes, service) {
     let totalRate = 0;
