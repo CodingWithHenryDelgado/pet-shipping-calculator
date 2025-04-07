@@ -72,7 +72,7 @@ function updateDropoffWindow() {
     if (maxDays === 0) {
         dropoffDisplay.innerHTML = `<strong>Drop-Off Window:</strong> ${formatDate(pickupDate)} (Same Day)`;
     } else {
-        dropoffDisplay.innerHTML = `<strong>Drop-Off Window:</strong> ${formatDate(pickupDate)} - ${formatDate(dropoffDate)}`;
+        dropoffDisplay.innerHTML = `<strong>Drop-Off Window:</strong> ${formatDate(pickupDate)} - (${formatDate(dropoffDate)} - 1)`;
     }
 }
 
@@ -100,18 +100,6 @@ document.getElementById('num-animals').addEventListener('change', () => {
     }
 });
 
-
-// Show crate selection for 2 pets
-// document.getElementById('num-animals').addEventListener('change', (event) => {
-//     const numAnimals = parseInt(event.target.value, 10);
-//     const crateSelection = document.getElementById('crate-selection');
-
-//     if (numAnimals === 2) {
-//         crateSelection.style.display = 'block';
-//     } else {
-//         crateSelection.style.display = 'none';
-//     }
-// });
 
 // Function to render pet fields based on the number of animals
 function renderPetFields(numAnimals) {
