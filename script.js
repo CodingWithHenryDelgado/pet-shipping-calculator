@@ -1,17 +1,110 @@
 let pickupAutocomplete, dropoffAutocomplete;
-
+let isPickupValid = false;
+let isDropoffValid = false;
+	
 // Initialize Autocomplete
 function initializeAutocomplete() {
     pickupAutocomplete = new google.maps.places.Autocomplete(
-        document.getElementById('pickup-address'),
-        { types: ['geocode'] } // Limit results to addresses
+        document.getElementById('pickup-city'),
+        { 	types: ['geocode'],
+        	componentRestrictions: { country: 'us' } 
+		} 
     );
 
     dropoffAutocomplete = new google.maps.places.Autocomplete(
         document.getElementById('dropoff-address'),
-        { types: ['geocode'] }
+        { 	types: ['geocode'],
+        	componentRestrictions: { country: 'us' } 
+		}
     );
+
+	// Listen for actual address selection
+	pickupAutocomplete.addListener('place_changed', function () {
+		const place = pickupAutocomplete.getPlace();
+		isPickupValid = !!place.geometry;
+	});
+
+	dropoffAutocomplete.addListener('place_changed', function () {
+		const place = dropoffAutocomplete.getPlace();
+		isDropoffValid = !!place.geometry;
+	});
+	
+	// Reset validity on user typing
+	document.getElementById('pickup-city').addEventListener('input', () => {
+		isPickupValid = false;
+	});
+
+	document.getElementById('dropoff-address').addEventListener('input', () => {
+		isDropoffValid = false;
+	});
 }
+	
+// 	Show results
+ document.addEventListener("DOMContentLoaded", () => {
+    const price = localStorage.getItem('lastCalculatedPrice');	 
+    let currentStep = 1;
+	 
+    if (price) {
+      document.getElementById('local-price-summary').style.display = 'flex';
+	  document.getElementById('calculator-heading').style.display = 'none';
+	  document.getElementById('transport-form').style.display = 'none';
+      document.getElementById('local-price-text').textContent = `$${parseFloat(price).toFixed(2)}`;
+    } else {
+		const steps = document.querySelectorAll('.form-step');
+
+		const showStep = (step) => {
+		  steps.forEach((el) => el.style.display = 'none');
+		  const current = document.querySelector(`.form-step[data-step="${step}"]`);
+		  if (current) current.style.display = 'flex';
+		};
+
+		// Next buttons
+		document.querySelectorAll('.next-btn').forEach((btn) => {
+			btn.addEventListener('click', () => {
+				const currentStepEl = document.querySelector(`.form-step[data-step="${currentStep}"]`);
+				const inputs = currentStepEl.querySelectorAll('input, select, textarea');
+				let isValid = true;
+
+				inputs.forEach((input) => {
+					if (input.hasAttribute('required') && !input.value.trim()) {
+						input.classList.add('input-error');
+						isValid = false;
+					} else {
+						input.classList.remove('input-error');
+					}
+				});
+
+				if (!isValid) {
+					alert('Please fill in all required fields before proceeding.');
+					return;
+				}
+				
+				// Step-specific validation
+				if (currentStep === 2) {
+					if (!isPickupValid || !isDropoffValid) {
+						alert('Please select a valid pickup and dropoff address from the dropdown.');
+						document.getElementById('pickup-city').classList.add('input-error');
+						document.getElementById('dropoff-address').classList.add('input-error');
+						return;
+					}
+				}
+
+				currentStep++;
+				showStep(currentStep);
+			});
+		});
+
+		// Back buttons
+		document.querySelectorAll('.back-btn').forEach(btn => {
+		  btn.addEventListener('click', () => {
+			currentStep--;
+			showStep(currentStep);
+		  });
+		});
+
+		showStep(currentStep); // Initialize view
+ 	}
+  });
 
 // Initialize the autocomplete on page load
 window.onload = initializeAutocomplete;
@@ -36,7 +129,7 @@ function updateDropoffWindow() {
     const dropoffDisplay = document.getElementById('dropoff-window-display'); // The <p> where we show the range
 
     if (!pickupInput || !service) {
-        dropoffDisplay.textContent = "Select a pick-up date and service to see the drop-off window.";
+        dropoffDisplay.textContent = "Select a pick-up date and service to see the pick-up window end.";
         return;
     }
 
@@ -66,13 +159,23 @@ function updateDropoffWindow() {
 
     // Create a NEW date object to avoid modifying pickupDate
     const dropoffDate = new Date(pickupDate.getTime());
-    dropoffDate.setDate(dropoffDate.getDate() + maxDays);
+    dropoffDate.setDate(dropoffDate.getDate() + maxDays - 1);
+	
+	// Mapping service slugs to readable names
+    const serviceNames = {
+        'shared-ride': 'Shared Ride',
+        'semi-private-ride': 'Semi-Private Ride',
+        'private-ride': 'Private Ride',
+        'private-ride-two-drivers': 'Private Ride (Two Drivers)'
+    };
+	
+	const formattedService = serviceNames[service] || service; // Default to raw name if not found
 
     // Display formatted range
     if (maxDays === 0) {
-        dropoffDisplay.innerHTML = `<strong>Drop-Off Window:</strong> ${formatDate(pickupDate)} (Same Day)`;
+        dropoffDisplay.innerHTML = `Pick-up range: <strong>${formatDate(pickupDate)} (Same Day)</strong> <br> <p> Service:<strong> ${formattedService}</strong></p>`;
     } else {
-        dropoffDisplay.innerHTML = `<strong>Drop-Off Window:</strong> ${formatDate(pickupDate)} - (${formatDate(dropoffDate)} - 1)`;
+        dropoffDisplay.innerHTML = `Pick-up window begin:<strong> ${formatDate(pickupDate)}</strong> <br> Pick-up window end: <strong>${formatDate(dropoffDate)}</strong> <br> <p>Service:<strong> ${formattedService} </strong></p>`;
     }
 }
 
@@ -100,7 +203,6 @@ document.getElementById('num-animals').addEventListener('change', () => {
     }
 });
 
-
 // Function to render pet fields based on the number of animals
 function renderPetFields(numAnimals) {
     const dynamicPetsContainer = document.getElementById('dynamic-pets-container');
@@ -111,34 +213,29 @@ function renderPetFields(numAnimals) {
         petDiv.classList.add('pet-fields');
         petDiv.innerHTML = `
             <h3>Pet #${i}</h3>
-            <label for="pet-${i}-weight">Weight:</label>
-            <select id="pet-${i}-weight" required>
-                <option value="small">Small: 1-29 lbs</option>
-                <option value="medium">Medium: 30-44 lbs</option>
-                <option value="large">Large: 45-74 lbs</option>
-                <option value="x-large">X-Large: 75-99 lbs</option>
-                <option value="xx-large">XX-Large: 100-149 lbs</option>
-                <option value="xxx-large">XXX-Large: 150-199 lbs</option>
-            </select>
+            <label for="pet-${i}-weight">Crate Size Needed:
+				<select name="pet-${i}-crate-size-needed" id="pet-${i}-weight" required>
+					<option value="select">Select</option>
+					<option value="small">Small - Up to 19 inches</option>
+					<option value="medium">Medium - Up to 24 inches</option>
+					<option value="large">Large - Up to 28 inches</option>
+					<option value="xl">XL - Up to 35 inches</option>
+					<option value="xxl">XXL - Up to 40 inches</option>
+				</select>
+			</label>
             
-            <label for="pet-${i}-height">Estimated Height:</label>
-            <input type="text" id="pet-${i}-height" placeholder="Standing up from floor to head (inches)." required>
+            <label for="pet-${i}-type">Type of Pet:
+				<select name="pet-${i}-type" id="pet-${i}-type" required>
+					<option value="select">Select</option>
+					<option value="dog">Dog</option>
+					<option value="cat">Cat</option>
+					<option value="other">Other</option>
+				</select>   
+			</label>
             
-            <label for="pet-${i}-type">Type of Pet:</label>
-            <select id="pet-${i}-type" required>
-                <option value="dog">Dog</option>
-                <option value="cat">Cat</option>
-                <option value="other">Other</option>
-            </select>   
-            
-            <label for="pet-${i}-crate">Crate Size Needed:</label>
-            <select id="pet-${i}-crate" required>
-                <option value="small">Small - Up to 19 inches</option>
-                <option value="medium">Medium - Up to 24 inches</option>
-                <option value="large">Large - Up to 28 inches</option>
-                <option value="xl">XL - Up to 35 inches</option>
-                <option value="xxl">XXL - Up to 40 inches</option>
-            </select>
+            <label for="pet-${i}-height">Estimated Height (in inches):
+            	<input type="text" name="pet-${i}-height" id="pet-${i}-height" placeholder="Standing up from floor to head (inches)." required>
+			</label>
         `;
 
         dynamicPetsContainer.appendChild(petDiv);
@@ -164,11 +261,12 @@ function addSharedCrateLogic() {
                 const sharedCrateDiv = document.createElement('div');
                 sharedCrateDiv.id = 'shared-crate-option';
                 sharedCrateDiv.innerHTML = `
-                    <label for="shared-crate">Would these two share a crate?</label>
-                    <select id="shared-crate" required>
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
-                    </select>
+                    <label for="shared-crate">Would these two share a crate?
+						<select name="shared-crate" id="shared-crate" required>
+							<option value="yes">Yes</option>
+							<option value="no">No</option>
+						</select>
+					</label>
                 `;
                 document.getElementById('dynamic-pets-container').appendChild(sharedCrateDiv);
             }
@@ -181,7 +279,6 @@ function addSharedCrateLogic() {
     pet1WeightSelect.addEventListener('change', checkSharedCrate);
     pet2WeightSelect.addEventListener('change', checkSharedCrate);
 
-    // ✅ Call the function immediately to check the initial state
     checkSharedCrate();
 }
 
@@ -190,85 +287,191 @@ document.getElementById('num-animals').addEventListener('change', () => {
     const numAnimals = parseInt(document.getElementById('num-animals').value, 10);
     renderPetFields(numAnimals);
 });
+	
+// Function to disable past dates
+function disablePastDates() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to midnight to avoid issues
+
+    // Format the date to YYYY-MM-DD (compatible with input[type="date"])
+    const minDate = today.toISOString().split('T')[0];
+
+    // Set the min attribute to prevent selecting past dates
+    document.getElementById('pickup-window').setAttribute('min', minDate);
+}
 
 // Initial load: Render fields for one pet by default
 window.onload = () => {
+    disablePastDates();
     renderPetFields(1);
 };
+	
+	let submitTimer = null;
 
-// Validation before calculating the price
-document.getElementById('calculate-btn').addEventListener('click', () => {
+function checkAllPetTypesSelected(numPets) {
+	let allSelected = true;
+	for (let i = 1; i <= numPets; i++) {
+		const petType = document.getElementById(`pet-${i}-type`);
+		if (!petType || !petType.value.trim()) {
+			allSelected = false;
+			break;
+		}
+	}
+	return allSelected;
+}
+
+// function handlePetTypeSelection() {
+// 	const numPets = parseInt(document.getElementById('num-animals').value);
+
+// 	// Clear any existing timer
+// 	if (submitTimer) {
+// 		clearTimeout(submitTimer);
+// 		submitTimer = null;
+// 	}
+
+// 	if (!checkAllPetTypesSelected(numPets)) {
+// 		// Hide submit if incomplete
+// 		document.getElementById('submit-btn').style.display = 'none';
+// 		document.getElementById('submit-spinner').style.display = 'none';
+// 		return;
+// 	}
+
+// 	// Show spinner while we "calculate"
+// 	document.getElementById('submit-spinner').style.display = 'block';
+
+// 	// Add a 2-second delay before showing submit
+// 	submitTimer = setTimeout(() => {
+// 		document.getElementById('submit-spinner').style.display = 'none';
+// 		document.getElementById('submit-btn').style.display = 'inline-block';
+// 	}, 2000);
+// }
+
+
+// Calculate results before submit button 
+function validateFormBeforeCalculation(shouldTriggerCalculation = false) {
     const pickupDate = new Date(document.getElementById('pickup-window').value);
+    const pickupAddress = document.getElementById('pickup-city').value;
+    const dropoffAddress = document.getElementById('dropoff-address').value;
+    const numAnimals = parseInt(document.getElementById('num-animals').value);
+    const sharedCrateOption = document.getElementById('shared-crate');
+    
+    if (!pickupDate || !pickupAddress || !dropoffAddress || !numAnimals) {
+        return { valid: false, message: "Please fill in all fields!" };
+    }
 
-    if (!pickupDate) {
-        alert("Please select pick up window");
+    if (!isPickupValid || !isDropoffValid) {
+        return { valid: false, message: "Please select a valid address from the dropdown suggestions." };
+    }
+
+    for (let i = 1; i <= numAnimals; i++) {
+        const weight = document.getElementById(`pet-${i}-weight`).value;
+        const type = document.getElementById(`pet-${i}-type`).value;
+        if (!weight || weight === "select" || !type || type === "select") {
+            return { valid: false, message: `Please select crate size and type for Pet #${i}` };
+        }
+    }
+
+    // If both pets are small, shared crate must be selected
+    if (numAnimals === 2) {
+        const pet1 = document.getElementById('pet-1-weight').value.trim().toLowerCase();
+        const pet2 = document.getElementById('pet-2-weight').value.trim().toLowerCase();
+        if (pet1 === 'small' && pet2 === 'small') {
+            if (!sharedCrateOption || sharedCrateOption.value === "") {
+                return { valid: false, message: "Please specify if the two small pets will share a crate." };
+            }
+        }
+    }
+
+    if (shouldTriggerCalculation) {
+        triggerCalculation((finalTotalPrice) => {
+            localStorage.setItem('finalTotalPrice', finalTotalPrice);
+        });
+    }
+
+    return { valid: true };
+}
+
+function triggerCalculation(onComplete) {
+    const validation = validateFormBeforeCalculation();
+    if (!validation.valid) {
+        document.getElementById('error-thing').innerHTML = `<p style="color:red;">${validation.message}</p>`;
         return;
     }
 
     const service = document.getElementById('services').value;
-    const pickupAddress = document.getElementById('pickup-address').value;
+    const pickupAddress = document.getElementById('pickup-city').value;
     const dropoffAddress = document.getElementById('dropoff-address').value;
-    const numAnimals = document.getElementById('num-animals').value;
-    const sharedCrateOption = document.getElementById('shared-crate'); // New crate-sharing option
+    const numAnimals = parseInt(document.getElementById('num-animals').value);
+    const sharedCrateOption = document.getElementById('shared-crate');
 
-    if (!pickupAddress || !dropoffAddress || !numAnimals) {
-        alert("Please fill in all fields!");
-        return;
-    }
-
-    // Dynamically fetch all dog sizes
     const dogSizes = [];
     for (let i = 1; i <= numAnimals; i++) {
-        const sizeElement = document.getElementById(`pet-${i}-weight`);
-        if (sizeElement) {
-            dogSizes.push(sizeElement.value);
-        } else {
-            alert(`Please select a size for Pet #${i}`);
-            return;
-        }
-    }
-
-    if (sharedCrateOption && !sharedCrateOption.value) {
-        alert("Please specify if the two small pets will share a crate.");
-        return;
+        const size = document.getElementById(`pet-${i}-weight`).value;
+        dogSizes.push(size);
     }
 
     calculateDistance(pickupAddress, dropoffAddress, (distanceMiles, isFloridaTrip) => {
         if (distanceMiles === null) {
-            alert("Unable to calculate distance. Please check your addresses.");
+            document.getElementById('error-thing').innerHTML = `<p style="color:red;">Unable to calculate distance. Please check your addresses.</p>`;
             return;
         }
 
         let basePrice;
         if (distanceMiles < 500) {
-            basePrice = isFloridaTrip ? 400 : 500; // Florida trips are $400, others are $500
+            basePrice = isFloridaTrip ? 400 : 500;
         } else {
             const roundedDistance = Math.round(distanceMiles);
             const pricePerMile = getPricePerMile(roundedDistance, dogSizes, service);
             basePrice = roundedDistance * pricePerMile;
         }
+		
+		const sharedCrateValue = (numAnimals === 2 && sharedCrateOption && sharedCrateOption.style.display !== "none") ? sharedCrateOption.value || "No" : "No";
 
-        const { totalPrice, breakdown } = calculateTotalPriceWithBreakdown(basePrice, numAnimals, sharedCrateOption ? sharedCrateOption.value : null);
+		const { totalPrice, breakdown } = calculateTotalPriceWithBreakdown(basePrice, numAnimals, sharedCrateValue);
 
-        // Add deposit cost to total price
-        const deposit = depositCosts[service] || 0; // Get deposit cost for the selected service
+        const deposit = depositCosts[service] || 0;
         const finalTotalPrice = totalPrice + deposit;
-
         const rushMessage = window.isRushJob ? "<p style='color: red; font-weight: bold;'>THIS IS A RUSHED JOB</p>" : "";
 
-        document.getElementById('price-output').innerHTML = `
-            <p>Distance: ${distanceMiles < 500 ? "Minimum Applied" : Math.round(distanceMiles) + " miles"}</p>
-            <p>Service: ${service}</p>
-            <p>Number of Animals: ${numAnimals}</p>
-            <p>${rushMessage}</p>
-            <p>Detailed Breakdown:</p>
-            <ul>
-                ${breakdown.map((item) => `<li>${item}</li>`).join('')}
-            </ul>
-            <p>Deposit: ${deposit}</p>
-            <p>Total Price: $${finalTotalPrice.toFixed(2)}</p>
-        `;
+		// Save in localStorage
+        localStorage.setItem('lastCalculatedPrice', finalTotalPrice);
+
+        // Update hidden field if exists
+        const hiddenField = document.getElementById('calculated-price');
+        if (hiddenField) {
+            hiddenField.value = finalTotalPrice.toFixed(2);
+        }																   	
+																		   
+//         document.getElementById('price-output').innerHTML = `
+//             <p>Distance: ${distanceMiles < 500 ? "Minimum Applied" : Math.round(distanceMiles) + " miles"}</p>
+//             <p>Service: ${service}</p>
+//             <p>Number of Animals: ${numAnimals}</p>
+//             <p>${rushMessage}</p>
+//             <p>Detailed Breakdown:</p>
+//             <ul>
+//                 ${breakdown.map((item) => `<li>${item}</li>`).join('')}
+//             </ul>
+//             <p>Deposit: $${deposit}</p>
+//             <p>Total Price: $${finalTotalPrice.toFixed(2)}</p>
+//         `;
     });
+}
+
+// When crate size or pet type is changed, auto-trigger the calculation
+document.addEventListener('change', (event) => {
+    const relevantSelectors = [
+        'select[id^="pet-"][id$="-type"]',
+        'select[id^="pet-"][id$="-weight"]',
+        '#num-animals',
+        '#shared-crate'
+    ];
+
+    if (relevantSelectors.some(sel => event.target.matches(sel))) {
+        const result = validateFormBeforeCalculation(true);
+        if (!result.valid) {
+            console.log(result.message); // Optionally show the error somewhere
+        }
+    }
 });
 
 // Use Google Maps DistanceMatrixService for distance calculation
@@ -363,25 +566,24 @@ function getPricePerMile(distance, dogSizes, service) {
 
     // Shared Ride rates based on weight (dog size)
     const sharedRates = {
-        small: [0.7, 0.65, 0.6, 0.56, 0.54],
-        medium: [0.72, 0.67, 0.62, 0.57, 0.55],
-        large: [0.74, 0.69, 0.64, 0.59, 0.56],
-        'x-large': [0.76, 0.7, 0.66, 0.63, 0.61],
-        'xx-large': [0.76, 0.7, 0.66, 0.63, 0.61],
-        'xxx-large': [0.76, 0.7, 0.66, 0.63, 0.61],
+        small: [0.7, 0.65, 0.6, 0.56, 0.54, 0.54],
+        medium: [0.72, 0.67, 0.62, 0.57, 0.55, 0.55],
+        large: [0.74, 0.69, 0.64, 0.59, 0.56, 0.56],
+        'x-large': [0.76, 0.7, 0.66, 0.63, 0.61, 0.61],
+        'xx-large': [0.76, 0.7, 0.66, 0.63, 0.61, 0.61]
     };
 
     // Private ride rates
-    const privateRates = [2.2, 1.5, 1.3, 1.27, 1.25, 1.13];
+    const privateRates = [2.2, 1.5, 1.3, 1.27, 1.25, 1.13, 1.13];
 
     // Private ride (two drivers) rates
-    const privateTwoDriverRates = [2.5, 1.7, 1.55, 1.4, 1.32, 1.27];
+    const privateTwoDriverRates = [2.5, 1.7, 1.55, 1.4, 1.32, 1.27, 1.27];
 
     // Semi-private ride rates (25% of private ride rates)
     const semiPrivateRates = privateRates.map(rate => rate * 0.75);
 
     // Define distance ranges
-    const distanceRanges = [1000, 1500, 2000, 2500, 2800];
+    const distanceRanges = [1000, 1500, 2000, 2500, 2700, 3200];
 
     // Loop through each dog size to calculate its rate
     dogSizes.forEach(dogSize => {
@@ -415,9 +617,9 @@ function getPricePerMile(distance, dogSizes, service) {
         }
 
         // Adjust rates for XXL and XXXL sizes
-        if (dogSize === 'xx-large') {
+        if (dogSize === 'x-large') {
             rate += 100 / distance;
-        } else if (dogSize === 'xxx-large') {
+        } else if (dogSize === 'xx-large') {
             rate += 150 / distance;
         }
 
@@ -471,3 +673,22 @@ function calculateTotalPriceWithBreakdown(basePrice, numAnimals, sharedCrate) {
 
     return { totalPrice, breakdown };
 }
+	
+document.getElementById('reset').addEventListener('click', () => {
+	localStorage.removeItem('lastCalculatedPrice');
+	
+	window.location.reload(true);
+
+	// Hide price summary section
+	document.getElementById('local-price-summary').style.setProperty('display', 'none');
+
+	// Show the full form again
+	document.getElementById('transport-form').style.setProperty('display', 'block');
+
+	// Optionally reset form fields too
+	document.getElementById('transport-form').reset();
+
+	// Hide submit/spinner just in case
+	document.getElementById('submit-btn').style.setProperty('display', 'none');
+	document.getElementById('submit-spinner').style.setProperty('display', 'none');
+});

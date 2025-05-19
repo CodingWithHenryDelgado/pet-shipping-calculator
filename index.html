@@ -17,49 +17,102 @@
 </head>
 
 <body>
-    <div class="calculator-container">
-        <h1>Pet Transport Calculator</h1>
-
+<div class="calculator-container">
+        <h1 id="calculator-heading">Pet Transport Calculator</h1>
+	
+		<div id="local-price-summary" style="display: none;">
+		  <h2>Your Estimated Price</h2>
+		  <p id="local-price-text"></p>
+		  <a href="https://www.picktime.com/6267bed3-0150-4cab-b24f-c71f822bbbe4/t/d3b6e38d-9bd9-4308-83ef-91e9766efb93#services/service" target="_blank">Schedule A Call</a><button type="button" id="reset">
+			Get A New Quote
+			</button>
+		</div>
         <form id="transport-form">
-            <label for="num-animals">Number of Animals:</label>
-            <select id="num-animals" required>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5+</option>
-            </select>
+			<div class="form-step first-step" data-step="1">
+				<label for="first-name">First Name*
+				<input type="text" id="first-name" placeholder="First name" required>
+				</label>
+				
+				<label for="last-name">Last Name*
+				<input type="text" id="last-name" placeholder="Last name" required>
+				</label>
 
-            <label for="services">Service:</label>
-            <select id="services" required>
-                <option value="shared-ride">Shared Ride (4 day pick up window)</option>
-                <option value="semi-private-ride">Semi Private Ride (3 day pick up window)</option>
-                <option value="private-ride">Private Ride (2 day pick up window)</option>
-                <option value="private-ride-two-drivers">Private Ride Two Drivers (1 day pick up window)</option>
-            </select>
+				<label for="email">Email*
+				<input type="text" id="email" placeholder="bluecollar@email.com" required>
+				</label>
 
-            <label for="pickup-window">Pick-Up Window:</label>
-            <input type="date" id="pickup-window" min="" max="" required>
+				<label for="number">Phone Number*
+					<input type="text" id="number" placeholder="888-208-6669" required>
+				</label>
+				
+    			<button type="button" class="next-btn">Next</button>
+			</div>
+			
+			<div class="form-step second-step" data-step="2" style="display: none;">
+				<label for="number_of_pets">Number of Animals:
+			
+				<select name="number_of_pets" id="num-animals" required>
+					<option value="1">1</option>
+					<option value="2">2</option>
+					<option value="3">3</option>
+					<option value="4">4</option>
+					<option value="5">5+</option>
+				</select>
+				</label>
 
-            <p id="dropoff-window-display">Select a pick-up date and service to see the pick-up window end.</p>
+				<label for="services">Service:
+				<select name="services" id="services" required>
+					<option value="shared-ride">Shared Ride (4 day pick up window)</option>
+					<option value="semi-private-ride">Semi Private Ride (3 day pick up window)</option>
+					<option value="private-ride">Private Ride (2 day pick up window)</option>
+					<option value="private-ride-two-drivers">Private Ride Two Drivers (1 day pick up window)</option>
+				</select>
+				</label>
 
-            <h2>500 Mile Minimum</h2>
-            <label for="pickup-address">Pick-Up Address:</label>
-            <input type="text" id="pickup-address" placeholder="Enter pick-up address or zipcode" required>
+				<label for="pickup-window" id="pick-up-window">Pick-Up Window:
+					<input type="date" name="pick-up-date" id="pickup-window" min="" max="" required>
+				</label>
 
-            <label for="dropoff-address">Drop-Off Address:</label>
-            <input type="text" id="dropoff-address" placeholder="Enter drop-off address" required>
+				<p id="dropoff-window-display">Select a pick-up date to receive your pick-up window end.</p>
 
-            <div id="dynamic-pets-container"></div>
+				<label for="pickup-address" id="pickup-label">Pick-Up Address:
+				<input type="text" name="pickup-address" id="pickup-city" placeholder="Enter pick-up address or zipcode" required>
+				</label>
 
-            <button type="button" id="calculate-btn">Calculate Price</button>
+				<label for="dropoff-address" id="dropoff-label">Drop-Off Address:
+					<input type="text" name="dropoff-address" id="dropoff-address" placeholder="Enter drop-off address or zipcode" required>
+				</label>
+				
+				<div class="buttons">
+					<button type="button" class="back-btn">Back</button>
+					<button type="button" class="next-btn">Next</button>
+				</div>
+		    </div>
+			
+			<div class="form-step final-step" data-step="3" style="display: none;">
+				<div id="dynamic-pets-container"></div>
+
+				<label for="generated_quote_value" id="calculated_price_label">
+					Generated Quote Value
+					<input type="text" name="generated_quote_value" id="calculated-price" required>
+				</label>
+
+				<div id="submit-spinner" style="display: none;"></div>
+				
+				<p id="error-thing"></p>
+				
+				<div class="buttons">
+					<button type="button" class="back-btn">Back</button>
+					<button type="submit" id="submit-btn">Get Your Quote Now!</button>
+				</div>
+		    </div>
         </form>
 
-        <div id="results">
+<!--         <div id="results">
             <h2>Calculation Results</h2>
             <p id="price-output"></p>
-        </div>
-    </div>
+        </div> -->
+</div>
     <script src="script.js"></script>
 </body>
 
